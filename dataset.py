@@ -8,12 +8,12 @@ import numpy as np
 
 class Dataset:
     def __init__(self):
-        self.path = kagglehub.dataset_download("rm1000/brain-tumor-mri-scans")
-        self.classes = ['glioma', 'healthy', 'meningioma', 'pituitary']
-        self.classes_dirs = [os.path.join(self.path, c) for c in self.classes]
+        self._path = kagglehub.dataset_download("rm1000/brain-tumor-mri-scans")
+        self._classes = ['glioma', 'healthy', 'meningioma', 'pituitary']
+        self._classes_dirs = [os.path.join(self._path, c) for c in self._classes]
 
     def plot_random_images(self, num_images=10):
-        for idx, d in enumerate(self.classes_dirs):
+        for idx, d in enumerate(self._classes_dirs):
             image_files = [os.path.join(d, f) for f in os.listdir(d)]
             random_images = random.sample(image_files, num_images)
 
@@ -23,12 +23,12 @@ class Dataset:
                 plt.imshow(image, cmap='gray')
                 plt.axis('off')
                 print(i)
-            print(f"Random image sample for {self.classes[idx]}")
+            print(f"Random image sample for {self._classes[idx]}")
             plt.show()
 
     # Image histogram tells the frequency of pixel intensities, in this case 0 - 256
     def plot_histograms_for_images(self, num_images=10):
-        for idx, d in enumerate(self.classes_dirs):
+        for idx, d in enumerate(self._classes_dirs):
             image_files = [os.path.join(d, f) for f in os.listdir(d)]
             random_images = random.sample(image_files, num_images)
 
@@ -38,13 +38,13 @@ class Dataset:
                 hist = cv2.calcHist([image], [0], None, [256], [0, 256])
                 plt.plot(hist)
 
-            plt.title(f'Pixel Intensity Histogram for Multiple Images ({self.classes[idx]})')
+            plt.title(f'Pixel Intensity Histogram for Multiple Images ({self._classes[idx]})')
             plt.xlabel('Pixel Intensity')
             plt.ylabel('Frequency')
             plt.show()
 
     def calculate_intensity_stats(self, num_images=100):
-        for idx, d in enumerate(self.classes_dirs):
+        for idx, d in enumerate(self._classes_dirs):
             image_files = [os.path.join(d, f) for f in os.listdir(d)]
             random_images = random.sample(image_files, num_images)
 
@@ -57,23 +57,23 @@ class Dataset:
             plt.figure(figsize=(12, 5))
             plt.subplot(1, 2, 1)
             plt.hist(means, bins=50)
-            plt.title(f'Mean Pixel Intensity Distribution ({self.classes[idx]})')
+            plt.title(f'Mean Pixel Intensity Distribution ({self._classes[idx]})')
             plt.xlabel('Mean Intensity')
             plt.ylabel('Frequency')
 
             plt.subplot(1, 2, 2)
             plt.hist(stds, bins=50)
-            plt.title(f'Standard Deviation of Intensity Distribution ({self.classes[idx]})')
+            plt.title(f'Standard Deviation of Intensity Distribution ({self._classes[idx]})')
             plt.xlabel('Standard Deviation')
             plt.ylabel('Frequency')
 
             plt.show()
 
     def get_path(self):
-        return self.path
+        return self._path
 
     def get_classes(self):
-        return self.classes
+        return self._classes
 
     def get_classes_dirs(self):
-        return self.classes_dirs
+        return self._classes_dirs
