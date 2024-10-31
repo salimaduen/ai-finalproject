@@ -1,29 +1,54 @@
 import kagglehub
 import os
 import random
+from torch.utils.data import Dataset
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from preprocessing import *
 
 
-class Dataset:
-    def __init__(self):
+class BrainTumorDataset(Dataset):
+    def __init__(self, transform=None):
         self._path = kagglehub.dataset_download("rm1000/brain-tumor-mri-scans")
         self._classes = ['glioma', 'healthy', 'meningioma', 'pituitary']
         self._classes_dirs = [os.path.join(self._path, c) for c in self._classes]
 
-    def plot_random_images(self, num_images=10):
-        for idx, d in enumerate(self._classes_dirs):
-            image_files = [os.path.join(d, f) for f in os.listdir(d)]
-            random_images = random.sample(image_files, num_images)
+        self.images, self.labels, self.images_dict = self._load_images()
 
-            plt.figure(figsize=(10, 10))
-            for i, img_path in enumerate(random_images):
+        self.transform = transform
+
+    def _init_images_dict(self):
+        images_dict = dict()
+        for i in range(len(self._classes)):
+            images_dict[i] = []
+        return images_dict
+
+    def _load_images(self):
+        images, labels = [], []
+        # Structured dict format {label: [list of images], . . .}
+        images_dict = self._init_images_dict()
+        for idx, class_dir in enumerate(self._classes_dirs):
+            image_files = [os.path.join(class_dir, f) for f in os.listdir(class_dir)]
+            for img_path in image_files:
                 image = cv2.imread(img_path, 0)  # images are grayscale, so we use 0 or cv2.IMREAD_GRAYSCALE
-                plt.imshow(image, cmap='gray')
-                plt.axis('off')
-                print(i)
-            print(f"Random image sample for {self._classes[idx]}")
+                if image is not None:
+                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+                    image = resize_image(image)
+                    images.append(image)
+                    labels.append(idx)
+                    images_dict.get(idx).append(image)
+        return np.array(images), np.array(labels), images_dict
+
+    def plot_random_images(self, num_images=10):
+        for label, images in self.images_dict.items():
+            random_images = random.sample(images, num_images)
+
+            fig, axes = plt.subplots(1, num_images, figsize=(15, 5))
+            for img, ax in zip(random_images, axes):
+                ax.imshow(img, cmap='gray')
+                ax.axis('off')
+            print(f"Random image sample for {self._classes[label]}")
             plt.show()
 
     # Image histogram tells the frequency of pixel intensities, in this case 0 - 256
@@ -77,3 +102,15 @@ class Dataset:
 
     def get_classes_dirs(self):
         return self._classes_dirs
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx: int):
+        image = self.images[idx]
+        label = self.labels[idx]
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image
