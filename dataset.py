@@ -5,14 +5,15 @@ from torch.utils.data import Dataset
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 from preprocessing import *
 
 
 class BrainTumorDataset(Dataset):
     def __init__(self, transform=None):
         self._path = kagglehub.dataset_download("rm1000/brain-tumor-mri-scans")
-        self._classes = ['glioma', 'healthy', 'meningioma', 'pituitary']
-        self._classes_dirs = [os.path.join(self._path, c) for c in self._classes]
+        self.classes = ['glioma', 'healthy', 'meningioma', 'pituitary']
+        self._classes_dirs = [os.path.join(self._path, c) for c in self.classes]
 
         self.images, self.labels, self.images_dict = self._load_images()
 
@@ -20,7 +21,7 @@ class BrainTumorDataset(Dataset):
 
     def _init_images_dict(self):
         images_dict = dict()
-        for i in range(len(self._classes)):
+        for i in range(len(self.classes)):
             images_dict[i] = []
         return images_dict
 
@@ -48,7 +49,7 @@ class BrainTumorDataset(Dataset):
             for img, ax in zip(random_images, axes):
                 ax.imshow(img, cmap='gray')
                 ax.axis('off')
-            print(f"Random image sample for {self._classes[label]}")
+            print(f"Random image sample for {self.classes[label]}")
             plt.show()
 
     # Image histogram tells the frequency of pixel intensities, in this case 0 - 256
@@ -63,7 +64,7 @@ class BrainTumorDataset(Dataset):
                 hist = cv2.calcHist([image], [0], None, [256], [0, 256])
                 plt.plot(hist)
 
-            plt.title(f'Pixel Intensity Histogram for Multiple Images ({self._classes[idx]})')
+            plt.title(f'Pixel Intensity Histogram for Multiple Images ({self.classes[idx]})')
             plt.xlabel('Pixel Intensity')
             plt.ylabel('Frequency')
             plt.show()
@@ -82,13 +83,13 @@ class BrainTumorDataset(Dataset):
             plt.figure(figsize=(12, 5))
             plt.subplot(1, 2, 1)
             plt.hist(means, bins=50)
-            plt.title(f'Mean Pixel Intensity Distribution ({self._classes[idx]})')
+            plt.title(f'Mean Pixel Intensity Distribution ({self.classes[idx]})')
             plt.xlabel('Mean Intensity')
             plt.ylabel('Frequency')
 
             plt.subplot(1, 2, 2)
             plt.hist(stds, bins=50)
-            plt.title(f'Standard Deviation of Intensity Distribution ({self._classes[idx]})')
+            plt.title(f'Standard Deviation of Intensity Distribution ({self.classes[idx]})')
             plt.xlabel('Standard Deviation')
             plt.ylabel('Frequency')
 
@@ -98,7 +99,7 @@ class BrainTumorDataset(Dataset):
         return self._path
 
     def get_classes(self):
-        return self._classes
+        return self.classes
 
     def get_classes_dirs(self):
         return self._classes_dirs
@@ -110,7 +111,9 @@ class BrainTumorDataset(Dataset):
         image = self.images[idx]
         label = self.labels[idx]
 
+        image = Image.fromarray(image)
+
         if self.transform:
             image = self.transform(image)
 
-        return image
+        return image, label

@@ -10,6 +10,13 @@ def normalize_image(image, normalization=255.0):
     return image / normalization
 
 
+def rotate_image(image, angle):
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    return cv2.warpAffine(image, M, (w, h))
+
+
 def denoise_image(image, denoising='non_local_means'):
     denoised_image = None
     if denoising == 'non_local_means':
@@ -26,5 +33,8 @@ def denoise_image(image, denoising='non_local_means'):
 
 
 def contrast_enhancement(image):
+    if len(image.shape) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     return clahe.apply(image)
+
