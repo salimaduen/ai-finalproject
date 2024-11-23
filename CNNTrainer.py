@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import seaborn as sns
+import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 from dataset import BrainTumorDataset
 from tqdm import tqdm
 from torch.optim.lr_scheduler import StepLR
 from PIL import Image
+from sklearn.metrics import confusion_matrix
 
 
 class Trainer:
@@ -32,6 +35,10 @@ class Trainer:
         self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
 
         self._prepare_data(batch_size=batch_size)
+
+        self.train_losses, self.train_accuracies, self.val_losses, self.val_accuracies = [], [], [], []
+
+        self.epochs = 0
 
     def _prepare_data(self, train_split=0.7, val_split=0.1, batch_size=32):
         train_size = int(train_split * len(self.dataset))
@@ -66,8 +73,11 @@ class Trainer:
                 train_loss += loss.item()
                 correct += (outputs.argmax(1) == labels).sum().item()
 
+            self.epochs += 1
             self.scheduler.step()
             train_accuracy = correct / len(self.train_loader.dataset)
+            self.train_losses.append(train_loss)
+            self.train_accuracies.append(train_accuracy)
             print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
 
             # Validate after each epoch
@@ -89,6 +99,8 @@ class Trainer:
                 correct += (outputs.argmax(1) == labels).sum().item()
 
         val_accuracy = correct / len(self.val_loader.dataset)
+        self.val_losses.append(val_loss)
+        self.val_accuracies.append(val_accuracy)
         print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}")
 
     def test(self):
@@ -110,12 +122,59 @@ class Trainer:
         test_accuracy = correct / len(self.test_loader.dataset)
         print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
 
+    def plot_loss(self):
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(self.epochs), self.train_losses, label='Train Loss')
+        plt.plot(range(self.epochs), self.val_losses, label='Validation Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.title("Training and Validation Loss Over Epochs")
+        plt.show()
+
+    def plot_accuracy(self):
+        plt.figure(figsize=(12, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(range(self.epochs), self.train_accuracies, label='Train Accuracy')
+        plt.plot(range(self.epochs), self.val_accuracies, label='Validation Accuracy')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+
+    def plot_confusion_matrix(self):
+        all_preds = []
+        all_labels = []
+
+        # Set model to eval mode
+        self.model.eval()
+
+        # Collect predictions and true labels
+        with torch.no_grad():
+            for images, labels in tqdm(self.test_loader, desc='Confusion Matrix Generation', leave=False):
+                images, labels = images.to(self.device), labels.to(self.device)
+                outputs = self.model(images)
+                preds = outputs.argmax(dim=1)
+
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+
+        # Compute confusion matrix
+        cm = confusion_matrix(all_labels, all_preds)
+        class_labels = self.dataset.classes
+
+        # Plot the confusion matrix
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_labels, yticklabels=class_labels)
+        plt.xlabel("Predicted Labels")
+        plt.ylabel("True Labels")
+        plt.title("Confusion Matrix")
+        plt.show()
+
     def predict(self, image_path):
-        # Define transforms
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize([0.5] * 3, [0.5] * 3)  # Replace with dataset-specific mean and std if available
+            transforms.Normalize([0.5] * 3, [0.5] * 3)
         ])
 
         try:
@@ -124,18 +183,14 @@ class Trainer:
             image = transform(image)
             image = image.unsqueeze(0).to(self.device)
 
-            # Set model to evaluation mode
             self.model.eval()
 
             # Perform inference
             with torch.no_grad():
-                outputs = self.model(image)  # No .logits, outputs is the raw tensor
+                outputs = self.model(image)
                 probabilities = torch.nn.functional.softmax(outputs, dim=1)
-
-            # Convert probabilities to numpy for better manipulation
             probabilities = probabilities.cpu().numpy().flatten()
 
-            # Print class probabilities
             for label, prob in zip(self.dataset.classes, probabilities):
                 print(f"{label}: {prob * 100:.2f}%")
 
